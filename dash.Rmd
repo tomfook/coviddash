@@ -1,0 +1,71 @@
+---
+title: "COVID-19 by Pref"
+output:
+  flexdashboard::flex_dashboard:
+    orientation: rows
+runtime: shiny
+---
+
+```{r global, include=FALSE}
+# load data in 'global' chunk so it can be shared by all users of the dashboard
+library(dplyr)
+library(ggplot2)
+library(purrr)
+library(readr)
+library(lubridate)
+library(dygraphs)
+library(xts)
+```
+
+```{r data, include=FALSE}
+covid <- read_csv("https://dl.dropboxusercontent.com/s/6mztoeb6xf78g5w/COVID-19.csv") %>%
+  transmute(
+	    date = mdy(確定日),
+	    pref = 居住都道府県
+  )
+```
+
+```{r parameter, include=FALSE}
+lb_chart <- 0.85
+
+```
+
+
+COVID-19 by pref
+=======================================================================
+
+Sidebar{.sidebar}
+-----------------------------------------------------------------------
+```{r}
+selectInput("select.pref", "prefecture", choices = unique(covid$pref), selected = "京都府")
+
+```
+
+trend of infection {data-height=800}
+-----------------------------------------------------------------------
+
+```{r}
+target <- reactive({
+  covid %>%
+    filter(pref == input$select.pref) %>%
+    arrange(date) 
+})
+```
+
+### history
+```{r}
+renderDygraph({
+  target() %>%
+    group_by(date) %>%
+    summarise(num = n()) %>%
+    xts(x = .[["num"]], order.by = .[["date"]]) %>%
+    dygraph %>%
+    dySeries("V1", label = "count") %>%
+    dyRangeSelector(height = 20) %>%
+    dyOptions(digitsAfterDecimal = 4, drawPoints = TRUE, pointSize = 2) %>%
+    dyHighlight(highlightCircleSize = 5) %>%
+    #dyRangeSelector(dateWindow = as.character(today () - c(100, 0))) %>%
+    dyAxis("y", label = "count")
+})
+```
+
